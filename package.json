@@ -1,0 +1,12 @@
+{
+  "name": "capes-explorer",
+  "version": "1.0.0",
+  "description": "CAPES Explorer - Consulta inteligente de pós-graduação brasileira",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
