@@ -1,744 +1,831 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CAPES Explorer</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #0a0c10;
-    --surface: #12151c;
-    --surface-hover: #1a1e28;
-    --border: #1e2330;
-    --border-focus: #3b82f6;
-    --text: #e2e8f0;
-    --text-muted: #64748b;
-    --text-dim: #475569;
-    --accent: #3b82f6;
-    --accent-soft: rgba(59, 130, 246, 0.1);
-    --green: #10b981;
-    --green-soft: rgba(16, 185, 129, 0.1);
-    --amber: #f59e0b;
-    --amber-soft: rgba(245, 158, 11, 0.1);
-    --red: #ef4444;
-    --red-soft: rgba(239, 68, 68, 0.1);
-    --radius: 12px;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  /* Header */
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-    flex-shrink: 0;
-  }
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .logo {
-    width: 36px;
-    height: 36px;
-    background: linear-gradient(135deg, var(--accent), #6366f1);
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 14px;
-    color: white;
-    letter-spacing: -0.5px;
-  }
-
-  .header-title {
-    font-size: 18px;
-    font-weight: 600;
-    letter-spacing: -0.3px;
-  }
-
-  .header-subtitle {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 1px;
-  }
-
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--red);
-    transition: background 0.3s;
-  }
-
-  .status-dot.connected { background: var(--green); }
-
-  .config-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    background: var(--surface-hover);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text-muted);
-    font-size: 13px;
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .config-btn:hover {
-    border-color: var(--border-focus);
-    color: var(--text);
-  }
-
-  /* Config Panel */
-  .config-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(4px);
-    z-index: 100;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.2s;
-  }
-
-  .config-overlay.active { display: flex; }
-
-  .config-panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 32px;
-    width: 480px;
-    max-width: 90vw;
-    animation: slideUp 0.3s;
-  }
-
-  .config-panel h2 {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 4px;
-  }
-
-  .config-panel p {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin-bottom: 24px;
-  }
-
-  .field-group {
-    margin-bottom: 18px;
-  }
-
-  .field-group label {
-    display: block;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-muted);
-    margin-bottom: 6px;
-  }
-
-  .field-group input {
-    width: 100%;
-    padding: 10px 14px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-
-  .field-group input:focus {
-    border-color: var(--border-focus);
-  }
-
-  .field-group input::placeholder {
-    color: var(--text-dim);
-  }
-
-  .config-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 24px;
-  }
-
-  .btn-primary {
-    flex: 1;
-    padding: 10px 20px;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: opacity 0.2s;
-  }
-
-  .btn-primary:hover { opacity: 0.9; }
-
-  .btn-secondary {
-    padding: 10px 20px;
-    background: transparent;
-    color: var(--text-muted);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-secondary:hover {
-    border-color: var(--border-focus);
-    color: var(--text);
-  }
-
-  /* Chat area */
-  .chat-area {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  .chat-area::-webkit-scrollbar { width: 6px; }
-  .chat-area::-webkit-scrollbar-track { background: transparent; }
-  .chat-area::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 3px;
-  }
-
-  /* Welcome */
-  .welcome {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    text-align: center;
-    gap: 16px;
-    opacity: 0.8;
-  }
-
-  .welcome-icon {
-    width: 64px;
-    height: 64px;
-    background: linear-gradient(135deg, var(--accent), #6366f1);
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 28px;
-  }
-
-  .welcome h2 {
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.3px;
-  }
-
-  .welcome p {
-    color: var(--text-muted);
-    font-size: 14px;
-    max-width: 400px;
-    line-height: 1.6;
-  }
-
-  .suggestions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-    margin-top: 8px;
-  }
-
-  .suggestion-chip {
-    padding: 8px 14px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    color: var(--text-muted);
-    font-size: 13px;
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .suggestion-chip:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: var(--accent-soft);
-  }
-
-  /* Messages */
-  .message {
-    display: flex;
-    gap: 12px;
-    max-width: 800px;
-    animation: fadeIn 0.3s;
-  }
-
-  .message.user {
-    align-self: flex-end;
-    flex-direction: row-reverse;
-  }
-
-  .message-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-
-  .message.assistant .message-avatar {
-    background: linear-gradient(135deg, var(--accent), #6366f1);
-    color: white;
-  }
-
-  .message.user .message-avatar {
-    background: var(--surface-hover);
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-  }
-
-  .message-content {
-    padding: 14px 18px;
-    border-radius: var(--radius);
-    font-size: 14px;
-    line-height: 1.7;
-  }
-
-  .message.assistant .message-content {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-  }
-
-  .message.user .message-content {
-    background: var(--accent);
-    color: white;
-  }
-
-  .message-content strong {
-    font-weight: 600;
-  }
-
-  .message-content p { margin-bottom: 8px; }
-  .message-content p:last-child { margin-bottom: 0; }
-
-  /* Mode badges */
-  .mode-badge {
-    display: inline-block;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    font-family: 'JetBrains Mono', monospace;
-    letter-spacing: 0.5px;
-    margin-bottom: 10px;
-  }
-
-  .mode-badge.query { background: var(--accent-soft); color: var(--accent); }
-  .mode-badge.aggregate { background: var(--green-soft); color: var(--green); }
-  .mode-badge.clarify { background: var(--amber-soft); color: var(--amber); }
-  .mode-badge.error { background: var(--red-soft); color: var(--red); }
-
-  /* Typing indicator */
-  .typing {
-    display: flex;
-    gap: 4px;
-    padding: 8px 0;
-  }
-
-  .typing span {
-    width: 6px;
-    height: 6px;
-    background: var(--text-muted);
-    border-radius: 50%;
-    animation: bounce 1.4s infinite;
-  }
-
-  .typing span:nth-child(2) { animation-delay: 0.2s; }
-  .typing span:nth-child(3) { animation-delay: 0.4s; }
-
-  /* Input area */
-  .input-area {
-    padding: 16px 24px 24px;
-    border-top: 1px solid var(--border);
-    background: var(--surface);
-    flex-shrink: 0;
-  }
-
-  .input-wrapper {
-    display: flex;
-    gap: 10px;
-    max-width: 800px;
-    margin: 0 auto;
-  }
-
-  .input-wrapper input {
-    flex: 1;
-    padding: 14px 18px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 14px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-
-  .input-wrapper input:focus {
-    border-color: var(--border-focus);
-  }
-
-  .input-wrapper input::placeholder {
-    color: var(--text-dim);
-  }
-
-  .send-btn {
-    padding: 14px 20px;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: var(--radius);
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .send-btn:hover { opacity: 0.9; }
-
-  .send-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .input-hint {
-    text-align: center;
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-top: 8px;
-  }
-
-  /* Animations */
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes bounce {
-    0%, 60%, 100% { transform: translateY(0); }
-    30% { transform: translateY(-4px); }
-  }
-
-  /* Debug panel */
-  .debug-toggle {
-    position: fixed;
-    bottom: 100px;
-    right: 24px;
-    padding: 8px 12px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text-muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    cursor: pointer;
-    z-index: 50;
-    transition: all 0.2s;
-  }
-
-  .debug-toggle:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .debug-panel {
-    position: fixed;
-    bottom: 140px;
-    right: 24px;
-    width: 420px;
-    max-height: 400px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    overflow-y: auto;
-    z-index: 50;
-    display: none;
-    animation: fadeIn 0.2s;
-  }
-
-  .debug-panel.active { display: block; }
-
-  .debug-panel h4 {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
-  }
-
-  .debug-panel pre {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--text-muted);
-    background: var(--bg);
-    padding: 12px;
-    border-radius: 8px;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
-    margin-bottom: 12px;
-  }
-</style>
-</head>
-<body>
-
-<!-- Header -->
-<div class="header">
-  <div class="header-left">
-    <div class="logo">C</div>
-    <div>
-      <div class="header-title">CAPES Explorer</div>
-      <div class="header-subtitle">Consulta inteligente de pós-graduação</div>
-    </div>
-  </div>
-  <button class="config-btn" id="statusBtn">
-    <span class="status-dot connected"></span>
-    Conectado
-  </button>
-</div>
-
-<!-- Chat -->
-<div class="chat-area" id="chatArea">
-  <div class="welcome" id="welcome">
-    <div class="welcome-icon">🎓</div>
-    <h2>CAPES Explorer</h2>
-    <p>Pergunte sobre programas e cursos de pós-graduação do Brasil. Consulte conceitos, instituições, áreas e regiões.</p>
-    <div class="suggestions">
-      <button class="suggestion-chip" onclick="askSuggestion(this)">Programas com conceito 7</button>
-      <button class="suggestion-chip" onclick="askSuggestion(this)">Cursos na USP</button>
-      <button class="suggestion-chip" onclick="askSuggestion(this)">Quantos cursos por região?</button>
-      <button class="suggestion-chip" onclick="askSuggestion(this)">Doutorado em Ciência da Computação</button>
-    </div>
-  </div>
-</div>
-
-<!-- Input -->
-<div class="input-area">
-  <div class="input-wrapper">
-    <input type="text" id="userInput" placeholder="Pergunte sobre pós-graduação no Brasil..." onkeydown="if(event.key==='Enter')sendMessage()" />
-    <button class="send-btn" id="sendBtn" onclick="sendMessage()">
-      Enviar ➜
-    </button>
-  </div>
-  <div class="input-hint">Enter para enviar</div>
-</div>
-
-<!-- Debug -->
-<button class="debug-toggle" onclick="toggleDebug()">{ } Debug</button>
-<div class="debug-panel" id="debugPanel">
-  <h4>Último request</h4>
-  <pre id="debugRequest">—</pre>
-  <h4>Último response</h4>
-  <pre id="debugResponse">—</pre>
-</div>
-
-<script>
-  // --- State ---
-  const API_ENDPOINT = '/api/query';
-  let isLoading = false;
-
-  // --- Debug ---
-  function toggleDebug() {
-    document.getElementById('debugPanel').classList.toggle('active');
-  }
-
-  function setDebug(req, res) {
-    document.getElementById('debugRequest').textContent = JSON.stringify(req, null, 2);
-    document.getElementById('debugResponse').textContent = JSON.stringify(res, null, 2);
-  }
-
-  // --- Chat ---
-  function askSuggestion(el) {
-    document.getElementById('userInput').value = el.textContent;
-    sendMessage();
-  }
-
-  function addMessage(role, content, mode) {
-    const welcome = document.getElementById('welcome');
-    if (welcome) welcome.remove();
-
-    const chat = document.getElementById('chatArea');
-    const div = document.createElement('div');
-    div.className = `message ${role}`;
-
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.textContent = role === 'user' ? 'U' : 'C';
-
-    const body = document.createElement('div');
-    body.className = 'message-content';
-
-    if (mode) {
-      const badge = document.createElement('div');
-      badge.className = `mode-badge ${mode}`;
-      badge.textContent = mode.toUpperCase();
-      body.appendChild(badge);
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAPES Explorer</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0c10;
+      --surface: #12151c;
+      --surface-hover: #1a1e28;
+      --border: #1e2330;
+      --border-focus: #3b82f6;
+      --text: #e2e8f0;
+      --text-muted: #64748b;
+      --text-dim: #475569;
+      --accent: #3b82f6;
+      --accent-soft: rgba(59, 130, 246, 0.1);
+      --green: #10b981;
+      --green-soft: rgba(16, 185, 129, 0.1);
+      --amber: #f59e0b;
+      --amber-soft: rgba(245, 158, 11, 0.1);
+      --red: #ef4444;
+      --red-soft: rgba(239, 68, 68, 0.1);
+      --radius: 12px;
     }
 
-    // Parse markdown-like bold
-    const formatted = content
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br>');
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-    const p = document.createElement('div');
-    p.innerHTML = formatted;
-    body.appendChild(p);
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
-    div.appendChild(avatar);
-    div.appendChild(body);
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
 
-    return div;
-  }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
 
-  function addTyping() {
-    const chat = document.getElementById('chatArea');
-    const div = document.createElement('div');
-    div.className = 'message assistant';
-    div.id = 'typingIndicator';
+    .logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: white;
+      letter-spacing: -0.5px;
+    }
 
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.textContent = 'C';
+    .header-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
 
-    const body = document.createElement('div');
-    body.className = 'message-content';
+    .header-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
 
-    const typing = document.createElement('div');
-    typing.className = 'typing';
-    typing.innerHTML = '<span></span><span></span><span></span>';
-    body.appendChild(typing);
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      transition: background 0.3s;
+    }
 
-    div.appendChild(avatar);
-    div.appendChild(body);
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
-  }
+    .status-dot.connected {
+      background: var(--green);
+    }
 
-  function removeTyping() {
-    const el = document.getElementById('typingIndicator');
-    if (el) el.remove();
-  }
+    .config-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: var(--surface-hover);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
 
-  async function sendMessage() {
-    const input = document.getElementById('userInput');
-    const question = input.value.trim();
-    if (!question || isLoading) return;
+    .config-btn:hover {
+      border-color: var(--border-focus);
+      color: var(--text);
+    }
 
-    isLoading = true;
-    document.getElementById('sendBtn').disabled = true;
-    input.value = '';
+    /* Config Panel */
+    .config-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.2s;
+    }
 
-    addMessage('user', question);
-    addTyping();
+    .config-overlay.active {
+      display: flex;
+    }
 
-    const payload = {
-      tool: "capes_query",
-      args: { question: question }
-    };
+    .config-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      width: 480px;
+      max-width: 90vw;
+      animation: slideUp 0.3s;
+    }
 
-    try {
-      setDebug(payload, 'Loading...');
+    .config-panel h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
 
-      const res = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+    .config-panel p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
 
-      const data = await res.json();
-      setDebug(payload, data);
-      removeTyping();
+    .field-group {
+      margin-bottom: 18px;
+    }
 
-      // Detect mode from response
-      const mode = data.mode || data.body?.mode || null;
-      const text = data.response || data.text || data.body?.text || data.body?.body?.text || '';
+    .field-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
 
-      if (text) {
-        addMessage('assistant', text, mode);
-      } else if (data.body?.clarifyingQuestion) {
-        addMessage('assistant', data.body.clarifyingQuestion, 'clarify');
-      } else if (data.body?.errorMessage) {
-        const errMsg = data.body.errorMessage + (data.body.suggestion ? '\n\n' + data.body.suggestion : '');
-        addMessage('assistant', errMsg, 'error');
-      } else {
-        addMessage('assistant', 'Resposta recebida mas não consegui interpretar. Verifique o debug.', 'error');
+    .field-group input {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .field-group input:focus {
+      border-color: var(--border-focus);
+    }
+
+    .field-group input::placeholder {
+      color: var(--text-dim);
+    }
+
+    .config-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .btn-primary {
+      flex: 1;
+      padding: 10px 20px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    .btn-secondary {
+      padding: 10px 20px;
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--border-focus);
+      color: var(--text);
+    }
+
+    /* Chat area */
+    .chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .chat-area::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .chat-area::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .chat-area::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    /* Welcome */
+    .welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      text-align: center;
+      gap: 16px;
+      opacity: 0.8;
+    }
+
+    .welcome-icon {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+
+    .welcome h2 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    .welcome p {
+      color: var(--text-muted);
+      font-size: 14px;
+      max-width: 400px;
+      line-height: 1.6;
+    }
+
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+
+    .suggestion-chip {
+      padding: 8px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .suggestion-chip:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    /* Messages */
+    .message {
+      display: flex;
+      gap: 12px;
+      max-width: 800px;
+      animation: fadeIn 0.3s;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .message-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .message.assistant .message-avatar {
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      color: white;
+    }
+
+    .message.user .message-avatar {
+      background: var(--surface-hover);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    .message-content {
+      padding: 14px 18px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .message.assistant .message-content {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .message.user .message-content {
+      background: var(--accent);
+      color: white;
+    }
+
+    .message-content strong {
+      font-weight: 600;
+    }
+
+    .message-content p {
+      margin-bottom: 8px;
+    }
+
+    .message-content p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Mode badges */
+    .mode-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .mode-badge.query {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .mode-badge.aggregate {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .mode-badge.clarify {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .mode-badge.error {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    /* Typing indicator */
+    .typing {
+      display: flex;
+      gap: 4px;
+      padding: 8px 0;
+    }
+
+    .typing span {
+      width: 6px;
+      height: 6px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      animation: bounce 1.4s infinite;
+    }
+
+    .typing span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .typing span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    /* Input area */
+    .input-area {
+      padding: 16px 24px 24px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+
+    .input-wrapper {
+      display: flex;
+      gap: 10px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .input-wrapper input {
+      flex: 1;
+      padding: 14px 18px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .input-wrapper input:focus {
+      border-color: var(--border-focus);
+    }
+
+    .input-wrapper input::placeholder {
+      color: var(--text-dim);
+    }
+
+    .send-btn {
+      padding: 14px 20px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .send-btn:hover {
+      opacity: 0.9;
+    }
+
+    .send-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .input-hint {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 8px;
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
       }
 
-    } catch (err) {
-      removeTyping();
-      setDebug(payload, { error: err.message });
-      addMessage('assistant', 'Erro de conexão: ' + err.message, 'error');
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
-    isLoading = false;
-    document.getElementById('sendBtn').disabled = false;
-    input.focus();
-  }
-</script>
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes bounce {
+
+      0%,
+      60%,
+      100% {
+        transform: translateY(0);
+      }
+
+      30% {
+        transform: translateY(-4px);
+      }
+    }
+
+    /* Debug panel */
+    .debug-toggle {
+      position: fixed;
+      bottom: 100px;
+      right: 24px;
+      padding: 8px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      z-index: 50;
+      transition: all 0.2s;
+    }
+
+    .debug-toggle:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .debug-panel {
+      position: fixed;
+      bottom: 140px;
+      right: 24px;
+      width: 420px;
+      max-height: 400px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      overflow-y: auto;
+      z-index: 50;
+      display: none;
+      animation: fadeIn 0.2s;
+    }
+
+    .debug-panel.active {
+      display: block;
+    }
+
+    .debug-panel h4 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .debug-panel pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--bg);
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">C</div>
+      <div>
+        <div class="header-title">CAPES Explorer</div>
+        <div class="header-subtitle">Consulta inteligente de pós-graduação</div>
+      </div>
+    </div>
+    <button class="config-btn" id="statusBtn">
+      <span class="status-dot connected"></span>
+      Conectado
+    </button>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat-area" id="chatArea">
+    <div class="welcome" id="welcome">
+      <div class="welcome-icon">🎓</div>
+      <h2>CAPES Explorer</h2>
+      <p>Pergunte sobre programas e cursos de pós-graduação do Brasil. Consulte conceitos, instituições, áreas e
+        regiões.</p>
+      <div class="suggestions">
+        <button class="suggestion-chip" onclick="askSuggestion(this)">Programas com conceito 7</button>
+        <button class="suggestion-chip" onclick="askSuggestion(this)">Cursos na USP</button>
+        <button class="suggestion-chip" onclick="askSuggestion(this)">Quantos cursos por região?</button>
+        <button class="suggestion-chip" onclick="askSuggestion(this)">Doutorado em Ciência da Computação</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-area">
+    <div class="input-wrapper">
+      <input type="text" id="userInput" placeholder="Pergunte sobre pós-graduação no Brasil..."
+        onkeydown="if(event.key==='Enter')sendMessage()" />
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+        Enviar ➜
+      </button>
+    </div>
+    <div class="input-hint">Enter para enviar</div>
+  </div>
+
+  <!-- Debug -->
+  <button class="debug-toggle" onclick="toggleDebug()">{ } Debug</button>
+  <div class="debug-panel" id="debugPanel">
+    <h4>Último request</h4>
+    <pre id="debugRequest">—</pre>
+    <h4>Último response</h4>
+    <pre id="debugResponse">—</pre>
+  </div>
+
+  <script>
+    // --- State ---
+    const API_ENDPOINT = '/api/query';
+    let isLoading = false;
+
+    // --- Debug ---
+    function toggleDebug() {
+      document.getElementById('debugPanel').classList.toggle('active');
+    }
+
+    function setDebug(req, res) {
+      document.getElementById('debugRequest').textContent = JSON.stringify(req, null, 2);
+      document.getElementById('debugResponse').textContent = JSON.stringify(res, null, 2);
+    }
+
+    // --- Chat ---
+    function askSuggestion(el) {
+      document.getElementById('userInput').value = el.textContent;
+      sendMessage();
+    }
+
+    function addMessage(role, content, mode) {
+      const welcome = document.getElementById('welcome');
+      if (welcome) welcome.remove();
+
+      const chat = document.getElementById('chatArea');
+      const div = document.createElement('div');
+      div.className = `message ${role}`;
+
+      const avatar = document.createElement('div');
+      avatar.className = 'message-avatar';
+      avatar.textContent = role === 'user' ? 'U' : 'C';
+
+      const body = document.createElement('div');
+      body.className = 'message-content';
+
+      if (mode) {
+        const badge = document.createElement('div');
+        badge.className = `mode-badge ${mode}`;
+        badge.textContent = mode.toUpperCase();
+        body.appendChild(badge);
+      }
+
+      // Parse markdown-like bold
+      const formatted = content
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+
+      const p = document.createElement('div');
+      p.innerHTML = formatted;
+      body.appendChild(p);
+
+      div.appendChild(avatar);
+      div.appendChild(body);
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+
+      return div;
+    }
+
+    function addTyping() {
+      const chat = document.getElementById('chatArea');
+      const div = document.createElement('div');
+      div.className = 'message assistant';
+      div.id = 'typingIndicator';
+
+      const avatar = document.createElement('div');
+      avatar.className = 'message-avatar';
+      avatar.textContent = 'C';
+
+      const body = document.createElement('div');
+      body.className = 'message-content';
+
+      const typing = document.createElement('div');
+      typing.className = 'typing';
+      typing.innerHTML = '<span></span><span></span><span></span>';
+      body.appendChild(typing);
+
+      div.appendChild(avatar);
+      div.appendChild(body);
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function removeTyping() {
+      const el = document.getElementById('typingIndicator');
+      if (el) el.remove();
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('userInput');
+      const question = input.value.trim();
+      if (!question || isLoading) return;
+
+      isLoading = true;
+      document.getElementById('sendBtn').disabled = true;
+      input.value = '';
+
+      addMessage('user', question);
+      addTyping();
+
+      const payload = {
+        tool: "capes_query",
+        args: { question: question }
+      };
+
+      try {
+        setDebug(payload, 'Loading...');
+
+        const res = await fetch(API_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        setDebug(payload, data);
+        removeTyping();
+
+        // Detect mode from response
+        const mode = data.mode || data.body?.mode || (Array.isArray(data.results) ? 'query' : null);
+        let text = data.response || data.text || data.body?.text || data.body?.body?.text || '';
+
+        if (!text && Array.isArray(data.results)) {
+          if (data.results.length === 0) {
+            text = 'Nenhum resultado encontrado para essa consulta.';
+          } else {
+            text = data.results.map((item, index) => {
+              return `**${index + 1}. ${item.NM_CURSO || 'Curso sem nome'}**\n` +
+                `Instituição: ${item.NM_ENTIDADE_ENSINO || '—'}\n` +
+                `Conceito: ${item.CD_CONCEITO_CURSO ?? '—'}\n` +
+                `Código: ${item.CD_CURSO_PPG || '—'}\n` +
+                `UF: ${item.SG_UF_PROGRAMA || '—'}`;
+            }).join('\n\n');
+          }
+        }
+        if (text) {
+          addMessage('assistant', text, mode);
+        } else if (data.body?.clarifyingQuestion) {
+          addMessage('assistant', data.body.clarifyingQuestion, 'clarify');
+        } else if (data.body?.errorMessage) {
+          const errMsg = data.body.errorMessage + (data.body.suggestion ? '\n\n' + data.body.suggestion : '');
+          addMessage('assistant', errMsg, 'error');
+        } else {
+          addMessage('assistant', 'Resposta recebida mas não consegui interpretar. Verifique o debug.', 'error');
+        }
+
+      } catch (err) {
+        removeTyping();
+        setDebug(payload, { error: err.message });
+        addMessage('assistant', 'Erro de conexão: ' + err.message, 'error');
+      }
+
+      isLoading = false;
+      document.getElementById('sendBtn').disabled = false;
+      input.focus();
+    }
+  </script>
 
 </body>
+
 </html>
