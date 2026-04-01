@@ -787,22 +787,54 @@
         removeTyping();
 
         // Detect mode from response
-        const mode = data.mode || data.body?.mode || (Array.isArray(data.results) ? 'query' : null);
-        let text = data.response || data.text || data.body?.text || data.body?.body?.text || '';
+const mode = data.mode || data.body?.mode || (Array.isArray(data.results) ? 'query' : null);
+let text = data.response || data.text || data.body?.text || data.body?.body?.text || '';
 
-        if (!text && Array.isArray(data.results)) {
-          if (data.results.length === 0) {
-            text = 'Nenhum resultado encontrado para essa consulta.';
-          } else {
-            text = data.results.map((item, index) => {
-              return `**${index + 1}. ${item.NM_CURSO || 'Curso sem nome'}**\n` +
-                `Instituição: ${item.NM_ENTIDADE_ENSINO || '—'}\n` +
-                `Conceito: ${item.CD_CONCEITO_CURSO ?? '—'}\n` +
-                `Código: ${item.CD_CURSO_PPG || '—'}\n` +
-                `UF: ${item.SG_UF_PROGRAMA || '—'}`;
-            }).join('\n\n');
-          }
-        }
+function formatValue(value, indent = 0) {
+  const pad = '  '.repeat(indent);
+
+  if (value === null || value === undefined) return '—';
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '[]';
+    return value.map(v => {
+      if (typeof v === 'object' && v !== null) {
+        return `\n${pad}- ${formatValue(v, indent + 1)}`;
+      }
+      return `\n${pad}- ${v}`;
+    }).join('');
+  }
+
+  if (typeof value === 'object') {
+    return Object.entries(value)
+      .map(([k, v]) => `\n${pad}${k}: ${formatValue(v, indent + 1)}`)
+      .join('');
+  }
+
+  return String(value);
+}
+
+if (!text && Array.isArray(data.results)) {
+  if (data.results.length === 0) {
+    text = 'Nenhum resultado encontrado para essa consulta.';
+  } else {
+    text = data.results.map((item, index) => {
+      const possibleTitle =
+        item.NM_CURSO ||
+        item.NM_PROGRAMA_IES ||
+        item.NM_ENTIDADE_ENSINO ||
+        item.nome ||
+        item.name ||
+        `Resultado ${index + 1}`;
+
+      const details = Object.entries(item)
+        .map(([key, value]) => `**${key}:** ${formatValue(value)}`)
+        .join('\n');
+
+      return `**${index + 1}. ${possibleTitle}**\n${details}`;
+    }).join('\n\n');
+  }
+}
         if (text) {
           addMessage('assistant', text, mode);
         } else if (data.body?.clarifyingQuestion) {
