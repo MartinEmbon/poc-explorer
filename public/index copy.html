@@ -766,7 +766,10 @@
       addMessage('user', question);
       addTyping();
 
-      const payload = { question };
+      const payload = {
+        tool: "capes_query",
+        args: { question: question }
+      };
 
       try {
         setDebug(payload, 'Loading...');

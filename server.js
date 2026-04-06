@@ -5,150 +5,99 @@ const path = require('path');
 
 // Config
 const PORT = process.env.PORT || 3001;
-const TARGET = process.env.MCP_ENDPOINT || 'https://test.godigibee.io/pipeline/digibee/v1/poc-capes-v2/mcp';
+const AGENT_ENDPOINT =
+  process.env.AGENT_ENDPOINT ||
+  'https://test.godigibee.io/pipeline/digibee/v1/api-capes-agent-for-tool';
 
-let sessionId = null;
-let requestId = 1;
+const API_KEY =
+  process.env.AGENT_API_KEY ||
+  'wme98P7cgRzMT2Fso1Jzzepq9ftb8Rmg';
 
-// --- MCP Functions ---
+// --- Agent call ---
 
-function initSession(callback) {
-  const initPayload = JSON.stringify({
-    jsonrpc: '2.0',
-    id: requestId++,
-    method: 'initialize',
-    params: {
-      protocolVersion: '2025-06-18',
-      capabilities: {},
-      clientInfo: { name: 'capes-explorer', version: '1.0.0' }
-    }
+function callAgent(question, callback) {
+  const payload = JSON.stringify({
+    question
   });
 
-  const url = new URL(TARGET);
+  const url = new URL(AGENT_ENDPOINT);
+
   const options = {
     hostname: url.hostname,
-    path: url.pathname,
+    path: url.pathname + (url.search || ''),
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(initPayload),
-      'Accept': 'application/json, text/event-stream'
+      'Content-Length': Buffer.byteLength(payload),
+      'apikey': API_KEY
     }
   };
 
-  console.log('>> Initializing MCP session...');
+  console.log('>> Calling agent endpoint...');
+  console.log('>> Question:', question);
 
   const req = https.request(options, (res) => {
     let data = '';
-    const sid = res.headers['mcp-session-id'];
-    if (sid) sessionId = sid;
 
-    res.on('data', chunk => data += chunk);
+    res.on('data', (chunk) => {
+      data += chunk;
+    });
+
     res.on('end', () => {
-      console.log('<< Init response:', res.statusCode);
-      console.log('<< Session ID:', sessionId);
-      callback(null, sessionId);
+      console.log('<< Agent response status:', res.statusCode);
+      console.log('<< Agent raw response:', data.substring(0, 1000));
+
+      let parsed;
+      try {
+        parsed = JSON.parse(data);
+      } catch (e) {
+        return callback(new Error('Invalid JSON returned by agent: ' + e.message));
+      }
+
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        return callback(
+          new Error(
+            parsed?.message ||
+            parsed?.error ||
+            `Agent request failed with status ${res.statusCode}`
+          )
+        );
+      }
+
+      callback(null, normalizeAgentResponse(parsed));
     });
   });
 
   req.on('error', (err) => {
-    console.error('!! Init error:', err.message);
+    console.error('!! Agent request error:', err.message);
     callback(err);
   });
 
-  req.write(initPayload);
+  req.write(payload);
   req.end();
 }
 
-function callTool(toolName, args, callback) {
-  const mcpPayload = JSON.stringify({
-    jsonrpc: '2.0',
-    id: requestId++,
-    method: 'tools/call',
-    params: {
-      name: toolName,
-      arguments: args
-    }
-  });
+function normalizeAgentResponse(agentResponse) {
+  // Try to preserve the original response while making frontend consumption easier
+  let text =
+    agentResponse.response ||
+    agentResponse.text ||
+    agentResponse.answer ||
+    agentResponse.message ||
+    agentResponse.output ||
+    agentResponse.body?.text ||
+    agentResponse.body?.response ||
+    '';
 
-  const url = new URL(TARGET);
-  const headers = {
-    'Content-Type': 'application/json',
-    'Content-Length': Buffer.byteLength(mcpPayload),
-    'Accept': 'application/json, text/event-stream'
-  };
-
-  if (sessionId) {
-    headers['mcp-session-id'] = sessionId;
+  // Some agents return structured body as stringified JSON
+  if (!text && typeof agentResponse.body === 'string') {
+    text = agentResponse.body;
   }
 
-  const options = {
-    hostname: url.hostname,
-    path: url.pathname,
-    method: 'POST',
-    headers: headers
+  return {
+    ...agentResponse,
+    text
   };
-
-  console.log('>> MCP tools/call:', toolName);
-
-  const req = https.request(options, (res) => {
-    let data = '';
-    const sid = res.headers['mcp-session-id'];
-    if (sid) sessionId = sid;
-
-    res.on('data', chunk => data += chunk);
-    res.on('end', () => {
-      console.log('<< MCP response:', res.statusCode, data.substring(0, 300));
-
-      try {
-        let result;
-
-        if (data.includes('data: ')) {
-          const lines = data.split('\n').filter(l => l.startsWith('data: '));
-          for (const line of lines) {
-            try {
-              const parsed = JSON.parse(line.replace('data: ', ''));
-              if (parsed.result || parsed.error) {
-                result = parsed;
-              }
-            } catch (e) { /* skip */ }
-          }
-        } else {
-          result = JSON.parse(data);
-        }
-
-        if (result && result.result && result.result.content) {
-          const textParts = result.result.content
-            .filter(c => c.type === 'text')
-            .map(c => c.text);
-
-          const combined = textParts.join('\n');
-
-          try {
-            const parsed = JSON.parse(combined);
-            callback(null, parsed);
-          } catch (e) {
-            callback(null, { response: combined });
-          }
-        } else if (result && result.error) {
-          callback(null, { error: result.error.message || 'MCP error' });
-        } else {
-          callback(null, { raw: data });
-        }
-      } catch (e) {
-        console.error('!! Parse error:', e.message);
-        callback(null, { raw: data });
-      }
-    });
-  });
-
-  req.on('error', (err) => {
-    console.error('!! Request error:', err.message);
-    callback(err);
-  });
-
-  req.write(mcpPayload);
-  req.end();
 }
 
 // --- Static file serving ---
@@ -198,9 +147,13 @@ const server = http.createServer((req, res) => {
   // API route: POST /api/query
   if (req.method === 'POST' && req.url === '/api/query') {
     let body = '';
-    req.on('data', chunk => body += chunk);
+
+    req.on('data', chunk => {
+      body += chunk;
+    });
+
     req.on('end', () => {
-      console.log('\n== Incoming:', body.substring(0, 200));
+      console.log('\n== Incoming:', body.substring(0, 500));
 
       let input;
       try {
@@ -211,41 +164,40 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      const toolName = input.tool || 'capes_query';
-      const args = input.arguments || input.args || {};
+      const question =
+        input.question ||
+        input.args?.question ||
+        input.arguments?.question ||
+        '';
 
-      const doCall = () => {
-        callTool(toolName, args, (err, result) => {
-          if (err) {
-            res.writeHead(502, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-            return;
-          }
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(result));
-        });
-      };
-
-      if (!sessionId) {
-        initSession((err) => {
-          if (err) {
-            res.writeHead(502, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Failed to init MCP session: ' + err.message }));
-            return;
-          }
-          doCall();
-        });
-      } else {
-        doCall();
+      if (!question) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Missing "question"' }));
+        return;
       }
+
+      callAgent(question, (err, result) => {
+        if (err) {
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+          return;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      });
     });
+
     return;
   }
 
   // Health check
   if (req.method === 'GET' && req.url === '/api/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', session: sessionId ? 'active' : 'none', target: TARGET }));
+    res.end(JSON.stringify({
+      status: 'ok',
+      target: AGENT_ENDPOINT
+    }));
     return;
   }
 
@@ -255,6 +207,6 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`CAPES Explorer running on http://localhost:${PORT}`);
-  console.log(`MCP Target: ${TARGET}`);
+  console.log(`Agent Target: ${AGENT_ENDPOINT}`);
   console.log('');
 });
