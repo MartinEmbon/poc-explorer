@@ -7,11 +7,7 @@ const path = require('path');
 const PORT = process.env.PORT || 3001;
 const AGENT_ENDPOINT =
   process.env.AGENT_ENDPOINT ||
-  'https://test.godigibee.io/pipeline/digibee/v1/agent-capes-dataset';
-
-const FEEDBACK_ENDPOINT =
-  process.env.FEEDBACK_ENDPOINT ||
-  'https://test.godigibee.io/pipeline/digibee/v1/api-feedback-capes';
+  'https://test.godigibee.io/pipeline/digibee/v1/api-capes-agent-for-tool';
 
 const API_KEY =
   process.env.AGENT_API_KEY ||
@@ -21,7 +17,7 @@ const API_KEY =
 
 function callAgent(question, callback) {
   const payload = JSON.stringify({
-    pergunta: question
+    question
   });
 
   const url = new URL(AGENT_ENDPOINT);
@@ -38,7 +34,7 @@ function callAgent(question, callback) {
   };
 
   console.log('>> Calling agent endpoint...');
-  console.log('>> Pergunta:', question);
+  console.log('>> Question:', question);
 
   const req = https.request(options, (res) => {
     let data = '';
@@ -82,8 +78,8 @@ function callAgent(question, callback) {
 }
 
 function normalizeAgentResponse(agentResponse) {
+  // Try to preserve the original response while making frontend consumption easier
   let text =
-    agentResponse.llm_response ||
     agentResponse.response ||
     agentResponse.text ||
     agentResponse.answer ||
@@ -93,6 +89,7 @@ function normalizeAgentResponse(agentResponse) {
     agentResponse.body?.response ||
     '';
 
+  // Some agents return structured body as stringified JSON
   if (!text && typeof agentResponse.body === 'string') {
     text = agentResponse.body;
   }
@@ -101,56 +98,6 @@ function normalizeAgentResponse(agentResponse) {
     ...agentResponse,
     text
   };
-}
-
-// --- Feedback proxy ---
-
-function callFeedback(payload, callback) {
-  const body = JSON.stringify(payload);
-  const url = new URL(FEEDBACK_ENDPOINT);
-
-  const options = {
-    hostname: url.hostname,
-    path: url.pathname + (url.search || ''),
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(body),
-      'apikey': API_KEY
-    }
-  };
-
-  console.log('>> Sending feedback:', payload.type);
-
-  const req = https.request(options, (res) => {
-    let data = '';
-
-    res.on('data', (chunk) => {
-      data += chunk;
-    });
-
-    res.on('end', () => {
-      console.log('<< Feedback response status:', res.statusCode);
-      console.log('<< Feedback raw response:', data.substring(0, 500));
-
-      let parsed;
-      try {
-        parsed = JSON.parse(data);
-      } catch (e) {
-        parsed = { raw: data };
-      }
-
-      callback(null, parsed);
-    });
-  });
-
-  req.on('error', (err) => {
-    console.error('!! Feedback request error:', err.message);
-    callback(err);
-  });
-
-  req.write(body);
-  req.end();
 }
 
 // --- Static file serving ---
@@ -206,7 +153,7 @@ const server = http.createServer((req, res) => {
     });
 
     req.on('end', () => {
-      console.log('\n== Incoming query:', body.substring(0, 500));
+      console.log('\n== Incoming:', body.substring(0, 500));
 
       let input;
       try {
@@ -219,7 +166,6 @@ const server = http.createServer((req, res) => {
 
       const question =
         input.question ||
-        input.pergunta ||
         input.args?.question ||
         input.arguments?.question ||
         '';
@@ -245,48 +191,12 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // API route: POST /api/feedback
-  if (req.method === 'POST' && req.url === '/api/feedback') {
-    let body = '';
-
-    req.on('data', chunk => {
-      body += chunk;
-    });
-
-    req.on('end', () => {
-      console.log('\n== Incoming feedback:', body.substring(0, 500));
-
-      let input;
-      try {
-        input = JSON.parse(body);
-      } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid JSON' }));
-        return;
-      }
-
-      callFeedback(input, (err, result) => {
-        if (err) {
-          res.writeHead(502, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: err.message }));
-          return;
-        }
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result));
-      });
-    });
-
-    return;
-  }
-
   // Health check
   if (req.method === 'GET' && req.url === '/api/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'ok',
-      agent: AGENT_ENDPOINT,
-      feedback: FEEDBACK_ENDPOINT
+      target: AGENT_ENDPOINT
     }));
     return;
   }
@@ -298,6 +208,5 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`CAPES Explorer running on http://localhost:${PORT}`);
   console.log(`Agent Target: ${AGENT_ENDPOINT}`);
-  console.log(`Feedback Target: ${FEEDBACK_ENDPOINT}`);
   console.log('');
 });
